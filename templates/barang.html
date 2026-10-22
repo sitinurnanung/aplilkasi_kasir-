@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+{% block title %}Inventaris Barang{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="kpi-icon bg-primary-subtle text-primary">
+        <i class="bi bi-boxes"></i>
+      </div>
+      <div>
+        <div class="text-muted small">Total Produk</div>
+        <div class="fs-4 fw-bold">{% if stats %}{{ stats.total_produk }}{% else %}0{% endif %} <span class="fs-6 fw-normal text-muted">Item</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="kpi-icon bg-success-subtle text-success">
+        <i class="bi bi-wallet2"></i>
+      </div>
+      <div>
+        <div class="text-muted small">Nilai Aset Stok</div>
+        <div class="fs-5 fw-bold text-success">Rp {% if stats and stats.total_nilai_aset %}{{ "{:,}".format(stats.total_nilai_aset) }}{% else %}0{% endif %}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="kpi-icon bg-warning-subtle text-warning">
+        <i class="bi bi-exclamation-triangle"></i>
+      </div>
+      <div>
+        <div class="text-muted small">Stok Menipis (≤10)</div>
+        <div class="fs-4 fw-bold text-warning">{% if stats %}{{ stats.stok_menipis }}{% else %}0{% endif %} <span class="fs-6 fw-normal text-muted">Item</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="kpi-icon bg-danger-subtle text-danger">
+        <i class="bi bi-x-circle"></i>
+      </div>
+      <div>
+        <div class="text-muted small">Stok Habis (0)</div>
+        <div class="fs-4 fw-bold text-danger">{% if stats %}{{ stats.stok_habis }}{% else %}0{% endif %} <span class="fs-6 fw-normal text-muted">Item</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card-modern p-3 mb-3">
+  <form method="get" class="row g-2 align-items-center">
+    <div class="col-12 col-md-4">
+      <div class="input-group">
+        <span class="input-group-text bg-transparent border-end-0 text-muted">
+          <i class="bi bi-search"></i>
+        </span>
+        <input type="text" name="q" value="{{ q or '' }}" class="form-control border-start-0 ps-0" 
+               placeholder="Cari kode atau nama barang...">
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <select name="kategori" class="form-select" onchange="this.form.submit()">
+        <option value="">Semua Kategori</option>
+        {% for kat in (kategori_list or []) %}
+        <option value="{{ kat }}" {% if kategori == kat %}selected{% endif %}>{{ kat }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-6 col-md-2">
+      <select name="stok" class="form-select" onchange="this.form.submit()">
+        <option value="">Semua Stok</option>
+        <option value="menipis" {% if filter_stok == 'menipis' %}selected{% endif %}>Stok Menipis (≤10)</option>
+        <option value="kritis" {% if filter_stok == 'kritis' %}selected{% endif %}>Stok Kritis (≤5)</option>
+        <option value="habis" {% if filter_stok == 'habis' %}selected{% endif %}>Stok Habis (0)</option>
+      </select>
+    </div>
+
+    <div class="col-12 col-md-3 d-flex gap-2 justify-content-md-end">
+      <button type="submit" class="btn btn-outline-secondary">
+        <i class="bi bi-funnel"></i> Filter
+      </button>
+      {% if q or kategori or filter_stok %}
+      <a href="{{ url_for('barang') }}" class="btn btn-outline-danger" title="Reset Filter">
+        <i class="bi bi-arrow-counterclockwise"></i>
+      </a>
+      {% endif %}
+      <button type="button" class="btn btn-primary-gradient d-flex align-items-center gap-1" 
+              data-bs-toggle="modal" data-bs-target="#modalTambah">
+        <i class="bi bi-plus-lg"></i>
+        <span>Tambah</span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<div class="card-modern overflow-hidden">
+  <div class="table-responsive">
+    <table class="table table-modern align-middle">
+      <thead>
+        <tr>
+          <th style="width: 110px;">Kode</th>
+          <th>Nama Barang</th>
+          <th>Kategori</th>
+          <th class="text-end">Harga Jual</th>
+          <th class="text-center" style="min-width: 160px;">Stok & Penyesuaian Cepat</th>
+          <th class="text-center" style="width: 120px;">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in (barang or []) %}
+        <tr>
+          <td>
+            <span class="badge bg-secondary font-monospace">{{ b.kode }}</span>
+          </td>
+          <td>
+            <div class="fw-bold">{{ b.nama }}</div>
+            <div class="text-muted d-md-none small">
+              Kategori: {{ b.kategori if b.kategori else 'Umum' }}
+            </div>
+          </td>
+
+          <td>
+            <span class="badge badge-pill-soft badge-soft-primary">
+              {{ b.kategori if b.kategori else 'Umum' }}
+            </span>
+          </td>
+
+          <td class="text-end fw-bold text-primary">
+            Rp {{ "{:,}".format(b.harga) }}
+          </td>
+
+          <td class="text-center">
+            <div class="d-flex align-items-center justify-content-center gap-2">
+              <button class="btn btn-sm btn-outline-secondary py-0 px-2" 
+                      onclick="quickAdjustStok({{ b.id }}, -1)" title="Kurangi 1 Stok">
+                −
+              </button>
+              
+              <span id="stokBadge-{{ b.id }}" class="badge {% if b.stok > 10 %}badge-soft-success{% elif b.stok > 0 %}badge-soft-warning{% else %}badge-soft-danger{% endif %} fs-6 px-3">
+                {{ b.stok }}
+              </span>
+
+              <button class="btn btn-sm btn-outline-secondary py-0 px-2" 
+                      onclick="quickAdjustStok({{ b.id }}, 1)" title="Tambah 1 Stok">
+                +1
+              </button>
+              <button class="btn btn-sm btn-outline-primary py-0 px-2" 
+                      onclick="quickAdjustStok({{ b.id }}, 5)" title="Tambah 5 Stok">
+                +5
+              </button>
+            </div>
+          </td>
+
+          <td class="text-center">
+            <div class="d-inline-flex gap-1">
+              <button class="btn btn-sm btn-outline-primary btn-edit"
+                      data-id="{{ b.id }}"
+                      data-kode="{{ b.kode }}"
+                      data-nama="{{ b.nama }}"
+                      data-kategori="{{ b.kategori if b.kategori else 'Umum' }}"
+                      data-harga="{{ b.harga }}"
+                      data-stok="{{ b.stok }}"
+                      title="Edit Produk">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <form action="{{ url_for('barang_hapus', id_=b.id) }}" method="post" class="d-inline form-hapus"
+                    data-nama="{{ b.nama }}">
+                <button class="btn btn-sm btn-outline-danger" type="submit" title="Hapus Produk">
+                  <i class="bi bi-trash3"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center py-5 text-muted">
+            <i class="bi bi-box-seam fs-1 opacity-25 d-block mb-2"></i>
+            Tidak ada barang yang sesuai filter.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal fade" id="modalTambah" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content border-0 shadow-lg" method="post" action="{{ url_for('barang_tambah') }}">
+      <div class="modal-header border-bottom">
+        <h5 class="modal-title fw-bold d-flex align-items-center gap-2">
+          <i class="bi bi-plus-circle-fill text-primary"></i> Tambah Produk Baru
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label small fw-semibold">Kode Barcode / SKU <span class="text-danger">*</span></label>
+            <input name="kode" class="form-control" placeholder="Contoh: BRG015" required autofocus>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label small fw-semibold">Kategori</label>
+            <input name="kategori" class="form-control" list="kategoriOptions" placeholder="Pilih / Ketik Baru" value="Makanan">
+            <datalist id="kategoriOptions">
+              <option value="Makanan"></option>
+              <option value="Minuman"></option>
+              <option value="Sembako"></option>
+              <option value="Perawatan"></option>
+              <option value="Elektronik"></option>
+              <option value="Umum"></option>
+            </datalist>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label small fw-semibold">Nama Barang <span class="text-danger">*</span></label>
+            <input name="nama" class="form-control" placeholder="Contoh: Susu Indomilk Cokelat 190ml" required>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label small fw-semibold">Harga Jual (Rp) <span class="text-danger">*</span></label>
+            <input name="harga" type="number" min="0" class="form-control" placeholder="0" required>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label small fw-semibold">Stok Awal <span class="text-danger">*</span></label>
+            <input name="stok" type="number" min="0" class="form-control" placeholder="0" value="10" required>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer border-top bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button type="submit" class="btn btn-primary-gradient px-4">Simpan Produk</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="modalEdit" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content border-0 shadow-lg" method="post" id="formEdit">
+      <div class="modal-header border-bottom">
+        <h5 class="modal-title fw-bold d-flex align-items-center gap-2">
+          <i class="bi bi-pencil-square text-primary"></i> Edit Data Produk
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label small fw-semibold">Kode Barcode / SKU</label>
+            <input name="kode" id="e_kode" class="form-control" required>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label small fw-semibold">Kategori</label>
+            <input name="kategori" id="e_kategori" class="form-control" list="kategoriOptions">
+          </div>
+
+          <div class="col-12">
+            <label class="form-label small fw-semibold">Nama Barang</label>
+            <input name="nama" id="e_nama" class="form-control" required>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label small fw-semibold">Harga Jual (Rp)</label>
+            <input name="harga" id="e_harga" type="number" min="0" class="form-control" required>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label small fw-semibold">Jumlah Stok</label>
+            <input name="stok" id="e_stok" type="number" min="0" class="form-control" required>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer border-top bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button type="submit" class="btn btn-primary-gradient px-4">Simpan Perubahan</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+document.addEventListener('click', function (e) {
+  const btn = e.target.closest('.btn-edit');
+  if (!btn) return;
+
+  const id       = btn.dataset.id;
+  const kode     = btn.dataset.kode;
+  const nama     = btn.dataset.nama;
+  const kategori = btn.dataset.kategori;
+  const harga    = btn.dataset.harga;
+  const stok     = btn.dataset.stok;
+
+  document.getElementById('formEdit').action = '/barang/edit/' + id;
+  document.getElementById('e_kode').value     = kode;
+  document.getElementById('e_nama').value     = nama;
+  document.getElementById('e_kategori').value = kategori;
+  document.getElementById('e_harga').value    = harga;
+  document.getElementById('e_stok').value     = stok;
+
+  const modalEl = document.getElementById('modalEdit');
+  bootstrap.Modal.getOrCreateInstance(modalEl).show();
+});
+
+document.addEventListener('submit', function (e) {
+  const form = e.target.closest('.form-hapus');
+  if (!form) return;
+  const nama = form.dataset.nama || 'produk ini';
+  if (!confirm(`Apakah Anda yakin ingin menghapus "${nama}"?`)) {
+    e.preventDefault();
+  }
+});
+
+async function quickAdjustStok(barangId, delta) {
+  try {
+    const res = await fetch('/api/barang/quick-stok', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: barangId, delta: delta })
+    });
+
+    const json = await res.json();
+    if (!json.ok) {
+      showToast(json.msg || 'Gagal mengubah stok', 'danger');
+      return;
+    }
+
+    const badge = document.getElementById(`stokBadge-${barangId}`);
+    if (badge) {
+      badge.textContent = json.stok;
+      if (json.stok > 10) {
+        badge.className = 'badge badge-soft-success fs-6 px-3';
+      } else if (json.stok > 0) {
+        badge.className = 'badge badge-soft-warning fs-6 px-3';
+      } else {
+        badge.className = 'badge badge-soft-danger fs-6 px-3';
+      }
+    }
+
+    showToast(`Stok ${json.nama} berhasil diperbarui: ${json.stok}`, 'success');
+  } catch (err) {
+    console.error('Quick stock error:', err);
+    showToast('Terjadi kesalahan koneksi!', 'danger');
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,715 @@
+{% extends "base.html" %}
+{% block title %}Kasir (POS){% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+  <div class="col-12 col-lg-7 col-xl-8">
+    <div class="card-modern p-3 mb-3">
+
+      <div class="row g-2 align-items-center mb-3">
+        <div class="col">
+          <div class="input-group">
+            <span class="input-group-text bg-transparent border-end-0 text-muted">
+              <i class="bi bi-upc-scan fs-5"></i>
+            </span>
+            <input type="text" id="searchInput" class="form-control border-start-0 ps-0"
+              placeholder="Scan Barcode / Ketik Kode atau Nama Produk..." autofocus autocomplete="off">
+            <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()" title="Bersihkan">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-primary-gradient px-3" onclick="handleScanOrSearch()" title="Cari atau Tambah">
+            <i class="bi bi-search d-none d-sm-inline"></i> Cari
+          </button>
+        </div>
+      </div>
+
+      <div class="category-scroll mb-3" id="categoryContainer">
+        <button class="chip-btn active" data-category="Semua" onclick="filterCategory('Semua', this)">
+          <i class="bi bi-grid-fill me-1"></i> Semua
+        </button>
+        {% for kat in (kategori_list or []) %}
+        <button class="chip-btn" data-category="{{ kat }}" onclick="filterCategory('{{ kat }}', this)">
+          {{ kat }}
+        </button>
+        {% endfor %}
+      </div>
+
+      <div class="product-grid" id="productGrid">
+        <div class="text-center py-5 w-100 text-muted">
+          <div class="spinner-border text-primary spinner-border-sm me-2" role="status"></div>
+          Memuat daftar produk....
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-5 col-xl-4 d-none d-lg-block">
+    <div class="cart-card">
+      <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-basket3 text-primary fs-5"></i>
+          <span class="fw-bold">Keranjang Belanja</span>
+          <span class="badge badge-soft-primary" id="cartCountBadge">0 item</span>
+        </div>
+        <button class="btn btn-sm btn-outline-danger border-0" onclick="resetCart()" title="Kosongkan Keranjang">
+          <i class="bi bi-trash3"></i> Kosongkan
+        </button>
+      </div>
+
+      <div class="cart-items-list" id="cartItemsContainer">
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-cart-x fs-1 opacity-25 d-block mb-2"></i>
+          Keranjang masih kosong<br>
+          <small class="text-hint">Klik produk atau scan barcode untuk menambah</small>
+        </div>
+      </div>
+
+      <div class="p-3 border-top bg-surface-elevated">
+        <div class="d-flex justify-content-between align-items-baseline mb-2">
+          <span class="text-muted fw-semibold">Total Tagihan</span>
+          <span class="cart-total-amount" id="grandTotalText">Rp 0</span>
+        </div>
+
+        <div class="nominal-grid" id="nominalGrid">
+          <button class="nominal-btn" onclick="setNominal('pas')">Uang Pas</button>
+          <button class="nominal-btn" onclick="setNominal(10000)">10.000</button>
+          <button class="nominal-btn" onclick="setNominal(20000)">20.000</button>
+          <button class="nominal-btn" onclick="setNominal(50000)">50.000</button>
+          <button class="nominal-btn" onclick="setNominal(100000)">100.000</button>
+          <button class="nominal-btn" onclick="setNominal(150000)">150.000</button>
+          <button class="nominal-btn" onclick="setNominal(200000)">200.000</button>
+          <button class="nominal-btn" onclick="clearNominal()">Clear</button>
+        </div>
+
+        <div class="input-group mb-2">
+          <span class="input-group-text fw-bold">Rp</span>
+          <input type="number" id="inputBayar" class="form-control form-control-lg fw-bold"
+            placeholder="Masukkan nominal bayar..." min="0" oninput="hitungKembali()">
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+          <span class="fw-semibold text-muted">Kembalian</span>
+          <span class="fw-bold fs-4" id="textKembali">Rp 0</span>
+        </div>
+
+        <button class="btn btn-success-gradient w-100 py-3 fs-5 d-flex align-items-center justify-content-center gap-2"
+          id="btnCheckout" onclick="processCheckout()" disabled>
+          <i class="bi bi-wallet2"></i>
+          <span>Bayar & Cetak </span>
+        </button>
+
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="mobile-cart-bar" id="mobileCartBar" onclick="openMobileCart()">
+  <div class="d-flex align-items-center gap-2">
+    <div class="badge rounded-pill px-2 py-1" style="background: var(--on-primary); color: var(--primary);"
+      id="mobileCartCount">0</div>
+    <span class="fw-bold">Keranjang</span>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <span class="fw-bold fs-5" id="mobileCartTotal">Rp 0</span>
+    <i class="bi bi-chevron-up"></i>
+  </div>
+</div>
+
+<div class="modal fade" id="modalMobileCart" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-bottom modal-fullscreen-md-down">
+    <div class="modal-content border-0">
+      <div class="modal-header border-bottom">
+        <h5 class="modal-title fw-bold d-flex align-items-center gap-2">
+          <i class="bi bi-basket3 text-primary"></i> Keranjang Belanja
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0" style="max-height: 50vh; overflow-y: auto;">
+        <div class="cart-items-list" id="mobileCartItemsContainer"></div>
+      </div>
+      <div class="modal-footer d-block border-top bg-surface-elevated">
+        <div class="d-flex justify-content-between align-items-baseline mb-2">
+          <span class="text-muted fw-semibold">Total Tagihan</span>
+          <span class="fs-3 fw-bold text-primary" id="mobileGrandTotalText">Rp 0</span>
+        </div>
+
+        <div class="nominal-grid mb-2">
+          <button class="nominal-btn" onclick="setNominalMobile('pas')">Uang Pas</button>
+          <button class="nominal-btn" onclick="setNominalMobile(20000)">20.000</button>
+          <button class="nominal-btn" onclick="setNominalMobile(50000)">50.000</button>
+          <button class="nominal-btn" onclick="setNominalMobile(100000)">100.000</button>
+        </div>
+
+        <div class="input-group mb-2">
+          <span class="input-group-text fw-bold">Rp</span>
+          <input type="number" id="mobileInputBayar" class="form-control form-control-lg fw-bold"
+            placeholder="Nominal bayar..." min="0" oninput="hitungKembaliMobile()">
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+          <span class="small text-muted">Kembalian</span>
+          <span class="fw-bold fs-6" id="mobileTextKembali">Rp 0</span>
+        </div>
+
+        <button class="btn btn-success-gradient w-100 py-3 fs-5" id="mobileBtnCheckout" onclick="processCheckout(true)"
+          disabled>
+          <i class="bi bi-wallet2 me-1"></i> Bayar Sekarang
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalStrukSukses" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
+    <div class="modal-content border-0 bg-transparent">
+
+      <div class="exact-receipt" id="receiptContent">
+        <div class="receipt-title">Kasir Toko</div>
+        <div class="receipt-address">
+          Jl. Toko karanggan No. 99, Kota bogor<br>
+          Tel : 0812-3456-7890<br>
+          www.kasirnanung.com
+        </div>
+
+        <div class="receipt-dashed"></div>
+
+        <div class="receipt-bill-no">
+          Bill No. : 
+          <span id="strukId">1</span>
+        </div>
+
+        <div class="receipt-datetime">
+          <span id="strukTanggal">
+            07/09/2026
+          </span>
+
+          <span id="strukJam">
+            05:38 PM
+          </span>
+        </div>
+
+        <div class="receipt-dashed"></div>
+
+        <div class="receipt-col-header">
+          <span>Item x Qty</span>
+          <span>Price</span>
+        </div>
+
+        <div id="strukItemsList"></div>
+
+        <div class="receipt-dashed"></div>
+
+        <div class="receipt-summary-row">
+          <span>Items</span>
+          <span id="strukSummaryQty">0/0</span>
+        </div>
+
+        <div class="receipt-total-row">
+          <span class="receipt-total-label">Total</span>
+          <span class="receipt-total-val" id="strukTotal">0.00</span>
+        </div>
+
+        <div class="receipt-dashed"></div>
+
+        <div class="receipt-pay-row">
+          <span>Payment Method</span>
+          <span>Tunai (Cash)</span>
+        </div>
+        <div class="receipt-pay-row">
+          <span>Bayar</span>
+          <span id="strukBayar">Rp 0</span>
+        </div>
+        <div class="receipt-pay-row">
+          <span>Kembalian</span>
+          <span id="strukKembali">Rp 0</span>
+        </div>
+
+        <div class="receipt-footer-text">
+          " NO RETURN. NO EXCHANGE. "
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 justify-content-center mt-3 d-print-none">
+        <button type="button" class="btn btn-light shadow-sm px-3 fw-bold" data-bs-dismiss="modal">
+          <i class="bi bi-plus-circle me-1"></i> Transaksi Baru
+        </button>
+        <button type="button" class="btn btn-primary-gradient px-4 fw-bold d-flex align-items-center gap-1 shadow"
+          onclick="printReceipt()">
+          <i class="bi bi-printer-fill"></i> Cetak Struk
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+
+  let allProducts = [];
+  let currentCategory = 'Semua';
+  let cart = [];
+  let activeTransaction = null;
+
+  function formatRp(val) {
+    return 'Rp ' + Number(val || 0).toLocaleString('id-ID');
+  }
+
+  const catIcons = {
+    'makanan': 'bi-cup-hot',
+    'minuman': 'bi-cup-straw',
+    'sembako': 'bi-basket',
+    'perawatan': 'bi-heart-pulse',
+    'umum': 'bi-box-seam',
+  };
+
+  async function loadProducts(q = '', kategori = '') {
+    try {
+      let url = `/api/barang?q=${encodeURIComponent(q)}`;
+      if (kategori && kategori !== 'Semua') {
+        url += `&kategori=${encodeURIComponent(kategori)}`;
+      }
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.ok) {
+        allProducts = json.data;
+        renderProductGrid();
+      }
+    } catch (err) {
+      console.error('Failed to load products:', err);
+    }
+  }
+
+  function renderProductGrid() {
+    const container = document.getElementById('productGrid');
+    if (!allProducts || allProducts.length === 0) {
+      container.innerHTML = `
+      <div class="text-center py-5 w-100 text-muted">
+        <i class="bi bi-search fs-1 opacity-25 d-block mb-2"></i>
+        Tidak ada produk ditemukan
+      </div>`;
+      return;
+    }
+
+    container.innerHTML = allProducts.map(p => {
+      const isOut = p.stok <= 0;
+      const isCritical = p.stok > 0 && p.stok <= 10;
+      const stockBadge = isOut
+        ? '<span class="badge badge-soft-danger">Habis</span>'
+        : isCritical
+          ? `<span class="badge badge-soft-warning">Sisa ${p.stok}</span>`
+          : `<span class="stock-text">Stok ${p.stok}</span>`;
+
+      const katKey = (p.kategori || 'umum').toLowerCase();
+      const catClass = 'cat-' + katKey;
+
+      return `
+      <div class="product-card ${catClass} ${isOut ? 'out-of-stock' : ''}" 
+           onclick="${isOut ? '' : `addToCartById(${p.id})`}"
+           title="${p.nama} (${p.kode})">
+        <div>
+          <div class="mb-2">
+            ${stockBadge}
+          </div>
+          <div class="product-card-title">${p.nama}</div>
+          <div class="product-card-code">${p.kode}</div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+          <div class="product-card-price">${formatRp(p.harga)}</div>
+          <button class="btn btn-sm btn-outline-primary rounded-circle" 
+                  style="width: 28px; height: 28px; padding: 0;"
+                  ${isOut ? 'disabled' : ''}>
+            <i class="bi bi-plus"></i>
+          </button>
+        </div>
+      </div>
+    `;
+    }).join('');
+  }
+
+  function filterCategory(kat, btnEl) {
+    currentCategory = kat;
+    document.querySelectorAll('.chip-btn').forEach(btn => btn.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+    const q = document.getElementById('searchInput').value.trim();
+    loadProducts(q, currentCategory);
+  }
+
+  async function handleScanOrSearch() {
+    const query = document.getElementById('searchInput').value.trim();
+    if (!query) {
+      loadProducts('', currentCategory);
+      return;
+    }
+
+    const exactMatch = allProducts.find(p => p.kode.toUpperCase() === query.toUpperCase());
+    if (exactMatch) {
+      if (exactMatch.stok > 0) {
+        addToCart(exactMatch);
+        document.getElementById('searchInput').value = '';
+        showToast(`Ditambahkan: ${exactMatch.nama}`, 'success');
+      } else {
+        showToast(`Stok ${exactMatch.nama} habis!`, 'danger');
+        playBeep('error');
+      }
+      return;
+    }
+
+    loadProducts(query, currentCategory);
+  }
+
+  function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    loadProducts('', currentCategory);
+    document.getElementById('searchInput').focus();
+  }
+
+  function addToCartById(id) {
+    const product = allProducts.find(p => p.id === id);
+    if (product) addToCart(product);
+  }
+
+  function addToCart(product) {
+    const existing = cart.find(item => item.id === product.id);
+    const currentQty = existing ? existing.qty : 0;
+
+    if (currentQty + 1 > product.stok) {
+      showToast(`Stok ${product.nama} tidak mencukupi! (Sisa: ${product.stok})`, 'warning');
+      playBeep('error');
+      return;
+    }
+
+    if (existing) {
+      existing.qty += 1;
+      existing.subtotal = existing.qty * existing.harga;
+    } else {
+      cart.push({
+        id: product.id,
+        kode: product.kode,
+        nama: product.nama,
+        harga: product.harga,
+        stok: product.stok,
+        qty: 1,
+        subtotal: product.harga,
+      });
+    }
+
+    playBeep('add');
+    renderCart();
+  }
+
+  function updateQty(index, delta) {
+    const item = cart[index];
+    if (!item) return;
+
+    if (delta > 0 && item.qty + delta > item.stok) {
+      showToast(`Stok maksimal tercapai untuk ${item.nama}`, 'warning');
+      playBeep('error');
+      return;
+    }
+
+    item.qty += delta;
+    if (item.qty <= 0) {
+      cart.splice(index, 1);
+    } else {
+      item.subtotal = item.qty * item.harga;
+    }
+
+    renderCart();
+  }
+
+  function removeCartItem(index) {
+    cart.splice(index, 1);
+    renderCart();
+  }
+
+  function resetCart() {
+    if (cart.length === 0) return;
+    if (confirm('Kosongkan semua barang di keranjang?')) {
+      cart = [];
+      document.getElementById('inputBayar').value = '';
+      document.getElementById('mobileInputBayar').value = '';
+      renderCart();
+    }
+  }
+
+  function renderCart() {
+    const totalCount = cart.reduce((acc, item) => acc + item.qty, 0);
+    const grandTotal = cart.reduce((acc, item) => acc + item.subtotal, 0);
+    const container = document.getElementById('cartItemsContainer');
+    const countBadge = document.getElementById('cartCountBadge');
+    const totalText = document.getElementById('grandTotalText');
+    const btnCheckout = document.getElementById('btnCheckout');
+    const mobileContainer = document.getElementById('mobileCartItemsContainer');
+    const mobileCartBar = document.getElementById('mobileCartBar');
+    const mobileCartCount = document.getElementById('mobileCartCount');
+    const mobileCartTotal = document.getElementById('mobileCartTotal');
+    const mobileGrandTotalText = document.getElementById('mobileGrandTotalText');
+
+    countBadge.textContent = `${totalCount} item`;
+    totalText.textContent = formatRp(grandTotal);
+
+    if (mobileCartCount) mobileCartCount.textContent = totalCount;
+    if (mobileCartTotal) mobileCartTotal.textContent = formatRp(grandTotal);
+    if (mobileGrandTotalText) mobileGrandTotalText.textContent = formatRp(grandTotal);
+
+    if (mobileCartBar) {
+      if (cart.length > 0) {
+        mobileCartBar.classList.add('has-items');
+      } else {
+        mobileCartBar.classList.remove('has-items');
+      }
+    }
+
+    if (cart.length === 0) {
+      const emptyHtml = `
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-cart-x fs-1 opacity-25 d-block mb-2"></i>
+        Keranjang masih kosong<br>
+        <small class="text-hint">Klik produk atau scan barcode untuk menambah</small>
+      </div>`;
+      container.innerHTML = emptyHtml;
+      if (mobileContainer) mobileContainer.innerHTML = emptyHtml;
+      btnCheckout.disabled = true;
+      hitungKembali();
+      return;
+    }
+
+    const itemsHtml = cart.map((item, idx) => `
+    <div class="cart-item-row">
+      <div style="flex: 1; min-width: 0; padding-right: 8px;">
+        <div class="fw-bold text-truncate" style="font-size: 0.88rem;">${item.nama}</div>
+        <div class="text-muted" style="font-size: 0.75rem;">${formatRp(item.harga)}</div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <div class="cart-qty-ctrl">
+          <button class="cart-qty-btn" onclick="updateQty(${idx}, -1)">−</button>
+          <span class="cart-qty-num">${item.qty}</span>
+          <button class="cart-qty-btn" onclick="updateQty(${idx}, 1)">+</button>
+        </div>
+        <div class="fw-bold text-end" style="min-width: 75px; font-size: 0.88rem;">
+          ${formatRp(item.subtotal)}
+        </div>
+        <button class="btn btn-sm text-danger p-0 ms-1" onclick="removeCartItem(${idx})" title="Hapus">
+          <i class="bi bi-x-circle-fill"></i>
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+    container.innerHTML = itemsHtml;
+    if (mobileContainer) mobileContainer.innerHTML = itemsHtml;
+
+    hitungKembali();
+    hitungKembaliMobile();
+  }
+
+  function setNominal(amount) {
+    const grandTotal = cart.reduce((acc, item) => acc + item.subtotal, 0);
+    const input = document.getElementById('inputBayar');
+    if (amount === 'pas') {
+      input.value = grandTotal;
+    } else {
+      input.value = amount;
+    }
+    hitungKembali();
+  }
+
+  function clearNominal() {
+    document.getElementById('inputBayar').value = '';
+    hitungKembali();
+  }
+
+  function hitungKembali() {
+    const grandTotal = cart.reduce((acc, item) => acc + item.subtotal, 0);
+    const bayar = parseInt(document.getElementById('inputBayar').value) || 0;
+    const kembaliEl = document.getElementById('textKembali');
+    const btnCheckout = document.getElementById('btnCheckout');
+
+    if (cart.length === 0) {
+      kembaliEl.textContent = 'Rp 0';
+      kembaliEl.className = 'fw-bold fs-4 text-muted';
+      btnCheckout.disabled = true;
+      return;
+    }
+
+    const selisih = bayar - grandTotal;
+    if (selisih >= 0) {
+      kembaliEl.textContent = formatRp(selisih);
+      kembaliEl.className = 'fw-bold fs-4 text-success';
+      btnCheckout.disabled = false;
+    } else {
+      kembaliEl.textContent = `Kurang ${formatRp(Math.abs(selisih))}`;
+      kembaliEl.className = 'fw-bold fs-4 text-danger';
+      btnCheckout.disabled = true;
+    }
+  }
+
+  function setNominalMobile(amount) {
+    const grandTotal = cart.reduce((acc, item) => acc + item.subtotal, 0);
+    const input = document.getElementById('mobileInputBayar');
+    if (amount === 'pas') {
+      input.value = grandTotal;
+    } else {
+      input.value = amount;
+    }
+    hitungKembaliMobile();
+  }
+
+  function hitungKembaliMobile() {
+    const grandTotal = cart.reduce((acc, item) => acc + item.subtotal, 0);
+    const bayar = parseInt(document.getElementById('mobileInputBayar').value) || 0;
+    const kembaliEl = document.getElementById('mobileTextKembali');
+    const btnCheckout = document.getElementById('mobileBtnCheckout');
+
+    if (cart.length === 0) {
+      kembaliEl.textContent = 'Rp 0';
+      btnCheckout.disabled = true;
+      return;
+    }
+
+    const selisih = bayar - grandTotal;
+    if (selisih >= 0) {
+      kembaliEl.textContent = formatRp(selisih);
+      kembaliEl.className = 'fw-bold fs-6 text-success';
+      btnCheckout.disabled = false;
+    } else {
+      kembaliEl.textContent = `Kurang ${formatRp(Math.abs(selisih))}`;
+      kembaliEl.className = 'fw-bold fs-6 text-danger';
+      btnCheckout.disabled = true;
+    }
+  }
+
+  function openMobileCart() {
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMobileCart'));
+    document.getElementById('mobileInputBayar').value = document.getElementById('inputBayar').value;
+    hitungKembaliMobile();
+    modal.show();
+  }
+
+  async function processCheckout(isMobile = false) {
+    const grandTotal = cart.reduce((acc, item) => acc + item.subtotal, 0);
+    const inputBayarEl = isMobile
+      ? document.getElementById('mobileInputBayar')
+      : document.getElementById('inputBayar');
+    const bayar = parseInt(inputBayarEl.value) || 0;
+
+    if (cart.length === 0) {
+      showToast('Keranjang masih kosong!', 'warning');
+      return;
+    }
+
+    if (bayar < grandTotal) {
+      showToast('Uang pembayaran masih kurang!', 'danger');
+      playBeep('error');
+      return;
+    }
+
+    try {
+      const payload = {
+        items: cart.map(item => ({ id: item.id, qty: item.qty })),
+        bayar: bayar
+      };
+
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await res.json();
+      if (!result.ok) {
+        showToast(result.msg || 'Gagal memproses transaksi', 'danger');
+        playBeep('error');
+        return;
+      }
+
+      playBeep('success');
+      showToast(`Transaksi #${result.trans_id} berhasil disimpan!`, 'success');
+
+      if (isMobile) {
+        const mobileModal = bootstrap.Modal.getInstance(document.getElementById('modalMobileCart'));
+        if (mobileModal) mobileModal.hide();
+      }
+
+      activeTransaction = result;
+      showReceiptModal(result);
+
+      cart = [];
+      document.getElementById('inputBayar').value = '';
+      document.getElementById('mobileInputBayar').value = '';
+      renderCart();
+
+      loadProducts('', currentCategory);
+
+    } catch (err) {
+      console.error('Checkout error:', err);
+      showToast('Terjadi kesalahan jaringan!', 'danger');
+    }
+  }
+
+  function showReceiptModal(trx) {
+    document.getElementById('strukId').textContent = trx.trans_id;
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    document.getElementById('strukTanggal').textContent = dateStr;
+    document.getElementById('strukJam').textContent = timeStr;
+
+    const totalQty = trx.items.reduce((acc, it) => acc + it.qty, 0);
+    document.getElementById('strukSummaryQty').textContent = `${trx.items.length}/${totalQty}`;
+
+    document.getElementById('strukTotal').textContent = Number(trx.total || 0).toLocaleString('id-ID');
+    document.getElementById('strukBayar').textContent = formatRp(trx.bayar);
+    document.getElementById('strukKembali').textContent = formatRp(trx.kembali);
+
+    const itemsContainer = document.getElementById('strukItemsList');
+    itemsContainer.innerHTML = trx.items.map(it => `
+    <div class="receipt-item-row">
+      <span>${it.nama} x ${it.qty}</span>
+      <span>${Number(it.subtotal || 0).toLocaleString('id-ID')}</span>
+    </div>
+  `).join('');
+
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalStrukSukses'));
+    modal.show();
+  }
+
+  function printReceipt() {
+    if (activeTransaction) {
+      const printWindow = window.open(`/struk/${activeTransaction.trans_id}`, '_blank');
+      if (printWindow) {
+        printWindow.focus();
+      }
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'F9') {
+      e.preventDefault();
+      processCheckout();
+    }
+  });
+
+  document.getElementById('searchInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleScanOrSearch();
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadProducts();
+  });
+</script>
+{% endblock %}

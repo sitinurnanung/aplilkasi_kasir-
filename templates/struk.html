@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Struk #{{ trx.id }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-6 col-lg-5 col-xl-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 d-print-none">
+      <a href="{% if from_laporan %}{{ url_for('laporan') }}{% else %}{{ url_for('kasir') }}{% endif %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Kembali
+      </a>
+      <button class="btn btn-primary-gradient px-4 fw-bold" onclick="window.print()">
+        <i class="bi bi-printer-fill me-1"></i> Cetak Struk
+      </button>
+    </div>
+    <div class="exact-receipt">
+      <div class="receipt-title">Kasir Toko</div>
+      <div class="receipt-address">
+        Jl. Toko Karanggan No. 99, Kota Bogor<br>
+        Tel : 0812-3456-7890<br>
+        www.kasirnanung.com
+      </div>
+
+      <div class="receipt-dashed"></div>
+
+      <div class="receipt-bill-no">Bill No. : {{ trx.id }}</div>
+      <div class="receipt-datetime">
+        <span>{{ trx.tanggal[:10] if trx.tanggal else '' }}</span>
+        <span>{{ trx.tanggal[11:16] if trx.tanggal and trx.tanggal|length >= 16 else '' }}</span>
+      </div>
+
+      <div class="receipt-dashed"></div>
+      <div class="receipt-col-header">
+        <span>Item x Qty</span>
+        <span>Price</span>
+      </div>
+
+      {% for d in (detail or []) %}
+      <div class="receipt-item-row">
+        <span>{{ d.nama_barang }} x {{ d.qty }}</span>
+        <span>{{ "{:,}".format(d.subtotal or 0) }}</span>
+      </div>
+      {% endfor %}
+
+      <div class="receipt-dashed"></div>
+      <div class="receipt-summary-row">
+        <span>Items/Qty</span>
+        <span>{{ detail|length if detail else 0 }}/{{ (detail|sum(attribute='qty')) if detail else 0 }}</span>
+      </div>
+
+      <div class="receipt-total-row">
+        <span class="receipt-total-label">Total</span>
+        <span class="receipt-total-val">{{ "{:,}".format(trx.total or 0) }}</span>
+      </div>
+
+      <div class="receipt-dashed"></div>
+>
+      <div class="receipt-pay-row">
+        <span>Payment Method</span>
+        <span>Tunai (Cash)</span>
+      </div>
+      <div class="receipt-pay-row">
+        <span>Bayar</span>
+        <span>Rp {{ "{:,}".format(trx.bayar or 0) }}</span>
+      </div>
+      <div class="receipt-pay-row">
+        <span>Kembalian</span>
+        <span>Rp {{ "{:,}".format(trx.kembali or 0) }}</span>
+      </div>
+
+      <div class="receipt-footer-text">
+        """ NO RETURN. NO EXCHANGE. """
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}Laporan Penjualan{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-bold mb-1 d-flex align-items-center gap-2">
+      <i class="bi bi-graph-up-arrow text-primary">
+      </i> 
+      Laporan & Analitik Penjualan
+    </h4>
+
+    <p class="text-muted small mb-0">
+      Pantau performa penjualan, omset, dan riwayat transaksi toko
+    </p>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('laporan_export_csv', tgl1=tgl1, tgl2=tgl2) }}" class="btn btn-outline-success d-flex align-items-center gap-1">
+      <i class="bi bi-file-earmark-spreadsheet"></i>
+       <span>Export CSV</span>
+    </a>
+
+    <button class="btn btn-outline-secondary d-flex align-items-center gap-1" onclick="window.print()">
+      <i class="bi bi-printer"></i> <span>Cetak Laporan</span>
+    </button>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-4">
+    <div class="kpi-card">
+      <div class="kpi-icon bg-primary-subtle text-primary">
+        <i class="bi bi-cash-stack"></i>
+      </div>
+      <div>
+        <div class="text-muted small">Total Pendapatan (Omset)</div>
+        <div class="fs-3 fw-bold text-primary">Rp {{ "{:,}".format(total or 0) }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-4">
+    <div class="kpi-card">
+      <div class="kpi-icon bg-success-subtle text-success">
+        <i class="bi bi-receipt"></i>
+      </div>
+      <div>
+        <div class="text-muted small">Total Transaksi Selesai</div>
+        <div class="fs-3 fw-bold text-success">{{ total_trx or 0 }} <span class="fs-6 fw-normal text-muted">Struk</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-4">
+    <div class="kpi-card">
+      <div class="kpi-icon bg-info-subtle text-info">
+        <i class="bi bi-calculator"></i>
+      </div>
+      <div>
+        <div class="text-muted small">Rata-rata Transaksi</div>
+        <div class="fs-3 fw-bold text-info">Rp {{ "{:,}".format(rata_rata or 0) }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card-modern p-3 mb-4 d-print-none">
+  <form class="row g-2 align-items-end" method="get">
+    <div class="col-6 col-md-3">
+      <label class="form-label small fw-semibold text-muted">Dari Tanggal</label>
+      <input type="date" name="tgl1" id="filterTgl1" value="{{ tgl1 or '' }}" class="form-control">
+    </div>
+    <div class="col-6 col-md-3">
+      <label class="form-label small fw-semibold text-muted">Sampai Tanggal</label>
+      <input type="date" name="tgl2" id="filterTgl2" value="{{ tgl2 or '' }}" class="form-control">
+    </div>
+    <div class="col-12 col-md-6 d-flex gap-2 flex-wrap">
+      <button type="submit" class="btn btn-primary-gradient">
+        <i class="bi bi-funnel"></i> Terapkan Filter
+      </button>
+      <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('today')">Hari Ini</button>
+      <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('7days')">7 Hari</button>
+      <button type="button" class="btn btn-outline-secondary" onclick="setDateRange('month')">Bulan Ini</button>
+      <a href="{{ url_for('laporan') }}" class="btn btn-outline-danger" title="Reset Semua Filter">
+        <i class="bi bi-arrow-counterclockwise"></i>
+      </a>
+    </div>
+  </form>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-12 col-lg-5">
+    <div class="card-modern h-100 p-3">
+      <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-trophy text-warning"></i> 5 Produk Paling Laris
+      </h6>
+      {% if top_items %}
+        <div class="list-group list-group-flush">
+          {% for item in top_items %}
+          <div class="list-group-item d-flex justify-content-between align-items-center px-0 bg-transparent">
+            <div>
+              <div class="fw-bold">{{ loop.index }}. {{ item.nama_barang }}</div>
+              <small class="text-muted">Total Omset: Rp {{ "{:,}".format(item.total_nominal or 0) }}</small>
+            </div>
+            <span class="badge badge-pill-soft badge-soft-success fs-6">
+              {{ item.total_qty }} terjual
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="text-center py-4 text-muted">Belum ada data barang terjual</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-7">
+    <div class="card-modern h-100 p-3">
+      <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-clock-history text-primary"></i> Ringkasan Penjualan Periode Ini
+      </h6>
+      <div class="p-3 rounded bg-subtle mb-3">
+        <div class="row text-center g-2">
+          <div class="col-4 border-end">
+            <small class="text-muted">Periode</small>
+            <div class="fw-bold">
+              {% if tgl1 and tgl2 %}{{ tgl1 }} s/d {{ tgl2 }}{% elif tgl1 %}>= {{ tgl1 }}{% else %}Semua Data{% endif %}
+            </div>
+          </div>
+          <div class="col-4 border-end">
+            <small class="text-muted">Total Struk</small>
+            <div class="fw-bold text-success">{{ total_trx or 0 }}</div>
+          </div>
+          <div class="col-4">
+            <small class="text-muted">Omset Bersih</small>
+            <div class="fw-bold text-primary">Rp {{ "{:,}".format(total or 0) }}</div>
+          </div>
+        </div>
+      </div>
+      <p class="text-muted small">
+        Tip: Gunakan tombol <b>Export CSV</b> di sudut kanan atas untuk membuka laporan di Microsoft Excel atau Google Sheets untuk pembukuan lebih lanjut.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="card-modern overflow-hidden">
+  <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+    <h6 class="fw-bold mb-0"><i class="bi bi-list-check"></i> Riwayat Semua Transaksi</h6>
+    <span class="badge badge-soft-primary">{{ (transaksi|length) if transaksi else 0 }} Transaksi Ditemukan</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-modern align-middle">
+      <thead>
+        <tr>
+          <th>No. Struk</th>
+          <th>Tanggal & Jam</th>
+          <th class="text-end">Total Belanja</th>
+          <th class="text-end">Uang Bayar</th>
+          <th class="text-end">Kembalian</th>
+          <th class="text-center" style="width: 130px;">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in (transaksi or []) %}
+        <tr>
+          <td>
+            <span class="badge bg-secondary font-monospace">#{{ t.id }}</span>
+          </td>
+          <td>
+            <div class="fw-semibold">{{ t.tanggal }}</div>
+          </td>
+          <td class="text-end fw-bold text-primary">
+            Rp {{ "{:,}".format(t.total or 0) }}
+          </td>
+          <td class="text-end text-muted">
+            Rp {{ "{:,}".format(t.bayar or 0) }}
+          </td>
+          <td class="text-end text-success fw-semibold">
+            Rp {{ "{:,}".format(t.kembali or 0) }}
+          </td>
+          <td class="text-center">
+            <a href="{{ url_for('laporan_detail', trans_id=t.id) }}" class="btn btn-sm btn-outline-primary" title="Lihat Struk">
+              <i class="bi bi-receipt"></i> Struk
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center py-5 text-muted">
+            <i class="bi bi-receipt-cutoff fs-1 opacity-25 d-block mb-2"></i>
+            Belum ada data transaksi yang sesuai filter.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  
+function setDateRange(type) {
+  const now = new Date();
+  const formatYMD = (d) => d.toISOString().split('T')[0];
+
+  const tgl2Input = document.getElementById('filterTgl2');
+  const tgl1Input = document.getElementById('filterTgl1');
+
+  tgl2Input.value = formatYMD(now);
+
+  if (type === 'today') {
+    tgl1Input.value = formatYMD(now);
+  } else if (type === '7days') {
+    const past7 = new Date();
+    past7.setDate(now.getDate() - 7);
+    tgl1Input.value = formatYMD(past7);
+  } else if (type === 'month') {
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    tgl1Input.value = formatYMD(firstDay);
+  }
+}
+</script>
+{% endblock %}
